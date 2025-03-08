@@ -1,21 +1,27 @@
 package it.mtgnexus.downloader;
 
+import static it.mtgnexus.downloader.util.Constants.CARD_LIST_FILE;
 import static it.mtgnexus.downloader.util.Constants.CFG_ORACLE;
 import static it.mtgnexus.downloader.util.Constants.CFG_SIZE;
 import static it.mtgnexus.downloader.util.Constants.CFG_URL;
 import static it.mtgnexus.downloader.util.Constants.DOWNLOAD_FOLDER;
 import static it.mtgnexus.downloader.util.Constants.EQUAL;
 import static it.mtgnexus.downloader.util.Constants.HTTPS_MAGIC_NEXUS_COM;
+import static it.mtgnexus.downloader.util.Constants.MTGNEXUS_FOLDER;
 import static it.mtgnexus.downloader.util.Constants.ccc_card_image_backside;
 import static it.mtgnexus.downloader.util.Constants.ccc_card_image_frontside;
 import static it.mtgnexus.downloader.util.Constants.ccc_image_text_wrap;
 import static it.mtgnexus.downloader.util.Constants.ccc_side_by_side;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileSystems;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +46,8 @@ public class MtgNexusDownloaderApplication {
 	static String setName;
 	static boolean continueDownloading = true;
 	static final String SEPARATOR = FileSystems.getDefault().getSeparator();
+
+	static List<String> allCards = new ArrayList<>();
 
 	public static void main(String[] args) {
 		File configFile = new File(Constants.INPUT_FILE);
@@ -73,10 +81,12 @@ public class MtgNexusDownloaderApplication {
 			}
 		}
 
-		File downloadFolder = new File(DOWNLOAD_FOLDER);
+		String downloadFolderPath = DOWNLOAD_FOLDER;
+		File downloadFolder = new File(downloadFolderPath);
 		if (!downloadFolder.isDirectory()) {
 			downloadFolder.mkdirs();
 		}
+		String setFolderPath = "";
 
 		restTemplate = new RestTemplateBuilder().build();
 		continueDownloading = true;
@@ -87,6 +97,7 @@ public class MtgNexusDownloaderApplication {
 		Map<String, Object> paramMap = new HashMap<>();
 		paramMap.put("list", list);
 		paramMap.put("pageSize", pageSize);
+
 		while (continueDownloading) {
 			continueDownloading = false;
 			page++;
@@ -100,9 +111,7 @@ public class MtgNexusDownloaderApplication {
 			htmlPage = htmlPage.split("<span itemprop=\"name\" property=\"name\">")[1];
 			setName = sanitizeFileName(htmlPage.split("</span>")[0]);
 
-			System.out.println(setName);
-
-			String setFolderPath = DOWNLOAD_FOLDER + SEPARATOR + setName;
+			setFolderPath = downloadFolderPath + SEPARATOR + setName + SEPARATOR + MTGNEXUS_FOLDER;
 			File setFolder = new File(setFolderPath);
 			if (!setFolder.isDirectory()) {
 				setFolder.mkdirs();
@@ -114,6 +123,17 @@ public class MtgNexusDownloaderApplication {
 				downloadCards(htmlPage.split("cdb_pagination_results")[0].split(htmlTextSeparator)[0], setFolderPath);
 				htmlPage = htmlPage.substring(htmlTextSeparator.length());
 			}
+		}
+
+		File cardLister = new File(downloadFolderPath + SEPARATOR + setName + SEPARATOR + CARD_LIST_FILE);
+		try {
+			BufferedWriter writer = new BufferedWriter(new FileWriter(cardLister));
+			for (String card : allCards) {
+				writer.write(card + "\n");
+			}
+			writer.close();
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -136,12 +156,12 @@ public class MtgNexusDownloaderApplication {
 	}
 
 	public static void downloadCard(String currentHtmlCard, String folderPath) {
-		String cardName = sanitizeFileName(currentHtmlCard.split("<img title=\"")[1].split("\" src=\"/img")[0]);
+		String cardName = currentHtmlCard.split("<img title=\"")[1].split("\" src=\"/img")[0];
 		String imgId = currentHtmlCard.split("src=\"/img/ccc/ren/")[1].split("/")[1].split(".jpg")[0];
 		String imgUrl = currentHtmlCard.split("src=\"")[1].split("\\?t")[0];
 
 		File file = restTemplate.execute(HTTPS_MAGIC_NEXUS_COM + imgUrl, HttpMethod.GET, null, response -> {
-			String fileName = imgId + " " + cardName + ".jpg";
+			String fileName = imgId + " " + sanitizeFileName(cardName) + ".jpg";
 			File ret = new File(folderPath + SEPARATOR + fileName);
 			FileOutputStream fos = new FileOutputStream(ret);
 			InputStream is = new BufferedInputStream(response.getBody());
@@ -152,6 +172,8 @@ public class MtgNexusDownloaderApplication {
 		});
 		System.out.println("file created: " + file.getName());
 		continueDownloading = true;
+
+		allCards.add((allCards.size() + 1) + " [] " + cardName);
 	}
 
 	public static String sanitizeFileName(String name) {

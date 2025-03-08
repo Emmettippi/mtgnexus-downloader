@@ -3,9 +3,11 @@ package it.mtgnexus.downloader.util;
 public class Constants {
 
 	public static final String INPUT_FILE = "config.txt";
+	public static final String CARD_LIST_FILE = "card-list.txt";
 	public static final String EQUAL = "=";
 	public static final String HTTPS_MAGIC_NEXUS_COM = "https://www.mtgnexus.com";
 	public static final String DOWNLOAD_FOLDER = "download";
+	public static final String MTGNEXUS_FOLDER = "mtgnexus";
 
 	public static final String CFG_URL = "cfg.mtg.nexus.url";
 	public static final String CFG_ORACLE = "cfg.mtg.nexus.oracle";
