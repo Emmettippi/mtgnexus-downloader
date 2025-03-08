@@ -6,7 +6,10 @@ import static it.mtgnexus.downloader.util.Constants.CFG_URL;
 import static it.mtgnexus.downloader.util.Constants.DOWNLOAD_FOLDER;
 import static it.mtgnexus.downloader.util.Constants.EQUAL;
 import static it.mtgnexus.downloader.util.Constants.HTTPS_MAGIC_NEXUS_COM;
+import static it.mtgnexus.downloader.util.Constants.ccc_card_image_backside;
+import static it.mtgnexus.downloader.util.Constants.ccc_card_image_frontside;
 import static it.mtgnexus.downloader.util.Constants.ccc_image_text_wrap;
+import static it.mtgnexus.downloader.util.Constants.ccc_side_by_side;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -80,6 +83,7 @@ public class MtgNexusDownloaderApplication {
 
 		int page = 0;
 		String list = oracle ? "oracle" : "images";
+		final String htmlTextSeparator = oracle ? ccc_side_by_side : ccc_image_text_wrap;
 		Map<String, Object> paramMap = new HashMap<>();
 		paramMap.put("list", list);
 		paramMap.put("pageSize", pageSize);
@@ -94,41 +98,51 @@ public class MtgNexusDownloaderApplication {
 
 			htmlPage = htmlPage.split("<span itemprop=\"name\" property=\"name\">Custom Cards</span>")[1];
 			htmlPage = htmlPage.split("<span itemprop=\"name\" property=\"name\">")[1];
-			setName = htmlPage.split("</span>")[0];
+			setName = sanitizeFileName(htmlPage.split("</span>")[0]);
 
 			System.out.println(setName);
 
-			File setFolder = new File(DOWNLOAD_FOLDER + SEPARATOR + setName);
+			String setFolderPath = DOWNLOAD_FOLDER + SEPARATOR + setName;
+			File setFolder = new File(setFolderPath);
 			if (!setFolder.isDirectory()) {
 				setFolder.mkdirs();
 			}
 
-			while (htmlPage.indexOf(ccc_image_text_wrap) != -1) {
+			while (htmlPage.indexOf(htmlTextSeparator) != -1) {
 				htmlPage = htmlPage.substring(
-					htmlPage.indexOf(ccc_image_text_wrap) + ccc_image_text_wrap.length());
-				downloadCards(htmlPage.split("cdb_pagination_results")[0].split(ccc_image_text_wrap)[0]);
-				htmlPage = htmlPage.substring(ccc_image_text_wrap.length());
+					htmlPage.indexOf(htmlTextSeparator) + htmlTextSeparator.length());
+				downloadCards(htmlPage.split("cdb_pagination_results")[0].split(htmlTextSeparator)[0], setFolderPath);
+				htmlPage = htmlPage.substring(htmlTextSeparator.length());
 			}
 		}
 	}
 
-	public static void downloadCards(String currentHtmlCard) {
-		if (currentHtmlCard.contains("ccc_card_image_frontside")) {
-			String frontSide = currentHtmlCard.split("ccc_card_image_frontside")[1].split("ccc_card_image_backside")[0];
-			String backSide = currentHtmlCard.split("ccc_card_image_backside")[1];
+	public static void downloadCards(String currentHtmlCard, String setFolderPath) {
+		if (currentHtmlCard.contains(ccc_card_image_frontside)) {
+			String frontSide = currentHtmlCard.split(ccc_card_image_frontside)[1].split(ccc_card_image_backside)[0];
+			String backSide = currentHtmlCard.split(ccc_card_image_backside)[1];
+			String imgId = currentHtmlCard.split("id=\"card_img_")[1].split("\" style=\"")[0];
+
+			String flipFolderPath = setFolderPath + SEPARATOR + imgId;
+			File flipFolder = new File(flipFolderPath);
+			if (!flipFolder.isDirectory()) {
+				flipFolder.mkdirs();
+			}
+			downloadCard(frontSide, flipFolderPath);
+			downloadCard(backSide, flipFolderPath);
 		} else {
-			downloadCard(currentHtmlCard, DOWNLOAD_FOLDER + SEPARATOR + setName);
+			downloadCard(currentHtmlCard, setFolderPath);
 		}
 	}
 
-	public static void downloadCard(String currentHtmlCard, String folder) {
-		String cardName = currentHtmlCard.split("<img title=\"")[1].split("\" src=\"/img")[0];
+	public static void downloadCard(String currentHtmlCard, String folderPath) {
+		String cardName = sanitizeFileName(currentHtmlCard.split("<img title=\"")[1].split("\" src=\"/img")[0]);
 		String imgId = currentHtmlCard.split("src=\"/img/ccc/ren/")[1].split("/")[1].split(".jpg")[0];
 		String imgUrl = currentHtmlCard.split("src=\"")[1].split("\\?t")[0];
 
 		File file = restTemplate.execute(HTTPS_MAGIC_NEXUS_COM + imgUrl, HttpMethod.GET, null, response -> {
 			String fileName = imgId + " " + cardName + ".jpg";
-			File ret = new File(folder + SEPARATOR + fileName);
+			File ret = new File(folderPath + SEPARATOR + fileName);
 			FileOutputStream fos = new FileOutputStream(ret);
 			InputStream is = new BufferedInputStream(response.getBody());
 			StreamUtils.copy(is, fos);
@@ -138,5 +152,9 @@ public class MtgNexusDownloaderApplication {
 		});
 		System.out.println("file created: " + file.getName());
 		continueDownloading = true;
+	}
+
+	public static String sanitizeFileName(String name) {
+		return name.replaceAll("[^a-zA-Z0-9\\.,'_\\-\\!]+", " ");
 	}
 }

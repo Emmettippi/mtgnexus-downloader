@@ -1,4 +1,4 @@
 cfg.mtg.nexus.url=https://www.mtgnexus.com/customcards/23351-sonic-universe/
-cfg.mtg.nexus.oracle=false
+cfg.mtg.nexus.oracle=true
 #24, 48, 100, 200, 400
 cfg.mtg.nexus.pageSize=24
