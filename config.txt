@@ -2,3 +2,77 @@ cfg.mtg.nexus.url=https://www.mtgnexus.com/customcards/23351-sonic-universe/
 cfg.mtg.nexus.oracle=false
 #24, 48, 100, 200, 400
 cfg.mtg.nexus.pageSize=400
+
+#chao
+293584 3
+
+#naya trioms
+316636 2
+316629 2
+
+#enter tapped unless 2 basics
+316670 2
+294084 2
+316673 2
+
+#forest
+316573 3
+316618 3
+316619 3
+316620 3
+
+#island
+316622 2
+316623 2
+
+#mountain
+316574 3
+316603 2
+316639 2
+316640 2
+
+#plains
+316549 3
+316575 3
+316599 3
+316627 3
+
+#chao token
+317101 3
+293585 3
+
+#echidna warrior token
+317102 2
+327666 2
+
+#badnik token
+261385 4
+261390 2
+261392 2
+
+#clue token
+317099 3
+
+#egg pawn token
+264771 2
+264772 2
+264773 2
+
+#extreme gear token
+268298 3
+
+#hostage capsule token
+327662 2
+
+#powerstone token
+294405 4
+
+#super badnik token
+264779 4
+
+#zombot token
+317090 2
+317091 2
+317092 2
+
+

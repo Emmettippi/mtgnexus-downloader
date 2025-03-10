@@ -27,12 +27,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpMethod;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.client.RestTemplate;
 
+import it.mtgnexus.downloader.jasper.JasperReportProducer;
 import it.mtgnexus.downloader.util.Constants;
+import it.mtgnexus.downloader.util.ImgCardPath;
 import it.mtgnexus.downloader.util.InputReader;
 
 public class MtgNexusDownloaderApplication {
@@ -44,16 +47,19 @@ public class MtgNexusDownloaderApplication {
 	static final List<Integer> allowedPages = Arrays.asList(24, 48, 100, 200, 400);
 	static RestTemplate restTemplate;
 	static String setName;
-	static boolean continueDownloading = true;
 	static final String SEPARATOR = FileSystems.getDefault().getSeparator();
 
 	static List<String> allCards = new ArrayList<>();
+	static List<ImgCardPath> allCardPaths = new ArrayList<>();
+	static Map<String, Integer> cardPrintingQuantity = new HashMap<>();
+
+	static JasperReportProducer jasperProducer = new JasperReportProducer();
 
 	public static void main(String[] args) {
 		File configFile = new File(Constants.INPUT_FILE);
 		String propertiesInLine = InputReader.readPlainTextFile(configFile);
 		String[] cfgs = propertiesInLine.split("\n");
-		Map<String, Integer> cardPrintingQuantity = new HashMap<>();
+
 		for (String cfg : cfgs) {
 			if (cfg == null || cfg.trim().isEmpty()) {
 				continue;
@@ -74,10 +80,11 @@ public class MtgNexusDownloaderApplication {
 				}
 			}
 
-			if (cfg.matches("\\d+ .+")) {
-				int quantity = Integer.parseInt(cfg.split(" ")[0]);
-				String cardName = cfg.substring(cfg.indexOf(" ")).trim();
-				cardPrintingQuantity.put(cardName, quantity);
+			if (cfg.matches("\\d+(a|b)? \\d+")) {
+				String[] cardAndQuantity = cfg.split(" ");
+				String cardId = cardAndQuantity[0];
+				int quantity = Integer.parseInt(cardAndQuantity[1]);
+				cardPrintingQuantity.put(cardId, quantity);
 			}
 		}
 
@@ -86,10 +93,18 @@ public class MtgNexusDownloaderApplication {
 		if (!downloadFolder.isDirectory()) {
 			downloadFolder.mkdirs();
 		}
-		String setFolderPath = "";
 
+		downloadCards(downloadFolderPath);
+
+		createTxtCardList(downloadFolderPath);
+
+		createPdf(downloadFolderPath);
+	}
+
+	public static void downloadCards(String downloadFolderPath) {
+		String setFolderPath = "";
 		restTemplate = new RestTemplateBuilder().build();
-		continueDownloading = true;
+		boolean continueDownloading = true;
 
 		int page = 0;
 		String list = oracle ? "oracle" : "images";
@@ -120,24 +135,15 @@ public class MtgNexusDownloaderApplication {
 			while (htmlPage.indexOf(htmlTextSeparator) != -1) {
 				htmlPage = htmlPage.substring(
 					htmlPage.indexOf(htmlTextSeparator) + htmlTextSeparator.length());
-				downloadCards(htmlPage.split("cdb_pagination_results")[0].split(htmlTextSeparator)[0], setFolderPath);
+				downloadCard(htmlPage.split("cdb_pagination_results")[0].split(htmlTextSeparator)[0], setFolderPath);
+				continueDownloading = true;
 				htmlPage = htmlPage.substring(htmlTextSeparator.length());
 			}
 		}
-
-		File cardLister = new File(downloadFolderPath + SEPARATOR + setName + SEPARATOR + CARD_LIST_FILE);
-		try {
-			BufferedWriter writer = new BufferedWriter(new FileWriter(cardLister));
-			for (String card : allCards) {
-				writer.write(card + "\n");
-			}
-			writer.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		System.out.println("Cards downloaded. Find them at " + new File(setFolderPath).getAbsolutePath());
 	}
 
-	public static void downloadCards(String currentHtmlCard, String setFolderPath) {
+	public static void downloadCard(String currentHtmlCard, String setFolderPath) {
 		if (currentHtmlCard.contains(ccc_card_image_frontside)) {
 			String frontSide = currentHtmlCard.split(ccc_card_image_frontside)[1].split(ccc_card_image_backside)[0];
 			String backSide = currentHtmlCard.split(ccc_card_image_backside)[1];
@@ -148,14 +154,14 @@ public class MtgNexusDownloaderApplication {
 			if (!flipFolder.isDirectory()) {
 				flipFolder.mkdirs();
 			}
-			downloadCard(frontSide, flipFolderPath);
-			downloadCard(backSide, flipFolderPath);
+			downloadSingleCard(frontSide, flipFolderPath);
+			downloadSingleCard(backSide, flipFolderPath);
 		} else {
-			downloadCard(currentHtmlCard, setFolderPath);
+			downloadSingleCard(currentHtmlCard, setFolderPath);
 		}
 	}
 
-	public static void downloadCard(String currentHtmlCard, String folderPath) {
+	public static void downloadSingleCard(String currentHtmlCard, String folderPath) {
 		String cardName = currentHtmlCard.split("<img title=\"")[1].split("\" src=\"/img")[0];
 		String imgId = currentHtmlCard.split("src=\"/img/ccc/ren/")[1].split("/")[1].split(".jpg")[0];
 		String imgUrl = currentHtmlCard.split("src=\"")[1].split("\\?t")[0];
@@ -170,13 +176,47 @@ public class MtgNexusDownloaderApplication {
 			fos.close();
 			return ret;
 		});
-		System.out.println("file created: " + file.getName());
-		continueDownloading = true;
+		System.out.println("File created: " + file.getName());
 
-		allCards.add((allCards.size() + 1) + " [] " + cardName);
+		allCards.add((allCards.size() + 1) + " [" + imgId + "] " + cardName);
+		multiplyCardForSet(imgId, file);
+	}
+
+	public static void multiplyCardForSet(String imgId, File cardFile) {
+		int times = ObjectUtils.firstNonNull(cardPrintingQuantity.get(imgId), 1);
+		for (int i = 0; i < times; i++) {
+			allCardPaths.add(new ImgCardPath(imgId, cardFile.getAbsolutePath()));
+		}
 	}
 
 	public static String sanitizeFileName(String name) {
 		return name.replaceAll("[^a-zA-Z0-9\\.,'_\\-\\!]+", " ");
+	}
+
+	public static void createTxtCardList(String downloadFolderPath) {
+		File cardLister = new File(downloadFolderPath + SEPARATOR + setName + SEPARATOR + CARD_LIST_FILE);
+		try {
+			BufferedWriter writer = new BufferedWriter(new FileWriter(cardLister));
+			for (String card : allCards) {
+				writer.write(card + "\n");
+			}
+			writer.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		System.out.println("Card list created. Find it at " + cardLister.getAbsolutePath());
+	}
+
+	public static void createPdf(String downloadFolderPath) {
+		try {
+			byte[] bytes = jasperProducer.generateReport(new HashMap<>(), allCardPaths);
+			File pdfOutput = new File(downloadFolderPath + SEPARATOR + setName + SEPARATOR + setName + ".pdf");
+			FileOutputStream outputStream = new FileOutputStream(pdfOutput);
+			outputStream.write(bytes);
+			outputStream.close();
+			System.out.println("Pdf created. Find it at " + pdfOutput.getAbsolutePath());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 }

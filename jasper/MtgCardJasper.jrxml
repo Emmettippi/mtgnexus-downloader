@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 6.6.0.final utlizzo versione della libreria JasperReports6.6.0  -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="EtichetteDocenti" columnCount="3" pageWidth="595" pageHeight="842" whenNoDataType="NoDataSection" columnWidth="181" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="68451fb1-3b93-4c2f-8317-2e72129f67b8">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="com.jaspersoft.studio.unit." value="pixel"/>
+	<field name="imgPath" class="java.lang.String"/>
+	<detail>
+		<band height="253">
+			<image>
+				<reportElement x="0" y="0" width="180" height="252" uuid="3fbfc70d-2515-41e3-b72f-24026efa6ddb"/>
+				<imageExpression><![CDATA[$F{imgPath}]]></imageExpression>
+			</image>
+		</band>
+	</detail>
+</jasperReport>
