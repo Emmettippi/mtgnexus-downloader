@@ -21,8 +21,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileSystems;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -161,21 +163,25 @@ public class MtgNexusDownloaderApplication {
 		}
 	}
 
+	public static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd-HH:mm:ss");
+	public static String now = sdf.format(new Date());
+
 	public static void downloadSingleCard(String currentHtmlCard, String folderPath) {
 		String cardName = currentHtmlCard.split("<img title=\"")[1].split("\" src=\"/img")[0];
 		String imgId = currentHtmlCard.split("src=\"/img/ccc/ren/")[1].split("/")[1].split(".jpg")[0];
 		String imgUrl = currentHtmlCard.split("src=\"")[1].split("\\?t")[0];
 
-		File file = restTemplate.execute(HTTPS_MAGIC_NEXUS_COM + imgUrl, HttpMethod.GET, null, response -> {
-			String fileName = imgId + " " + sanitizeFileName(cardName) + ".jpg";
-			File ret = new File(folderPath + SEPARATOR + fileName);
-			FileOutputStream fos = new FileOutputStream(ret);
-			InputStream is = new BufferedInputStream(response.getBody());
-			StreamUtils.copy(is, fos);
-			is.close();
-			fos.close();
-			return ret;
-		});
+		File file = restTemplate.execute(HTTPS_MAGIC_NEXUS_COM + imgUrl + "?t=" + now, HttpMethod.GET, null,
+			response -> {
+				String fileName = imgId + " " + sanitizeFileName(cardName) + ".jpg";
+				File ret = new File(folderPath + SEPARATOR + fileName);
+				FileOutputStream fos = new FileOutputStream(ret);
+				InputStream is = new BufferedInputStream(response.getBody());
+				StreamUtils.copy(is, fos);
+				is.close();
+				fos.close();
+				return ret;
+			});
 		System.out.println("File created: " + file.getName());
 
 		allCards.add((allCards.size() + 1) + " [" + imgId + "] " + cardName);
